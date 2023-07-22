@@ -1,2 +1,2 @@
 install:
-	go install protoc-gen-goconsgen.go
+	go install protoc-gen-goconstrgen.go

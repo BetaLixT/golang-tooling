@@ -284,21 +284,51 @@ func ResolveAssignment(
 		}
 		if field.Message.Desc.FullName() == "google.protobuf.Struct" {
 			pname := pkg.ToPrivateName(field.GoName)
-			if field.Desc.HasOptionalKeyword() {
-				f.P("res", field.GoName, " := (*", pbStructPackage.Ident("Struct"), ")(nil)")
+
+			if field.Desc.IsList() {
+
+				f.P("res", field.GoName, " := ([]*", pbStructPackage.Ident("Struct"), ")(nil)")
 
 				f.P("if ", pname, " != nil {")
-				f.P("var err error")
-				f.P("res", field.GoName, ", err = ", pbStructPackage.Ident("NewStruct("+pname+")"))
+				f.P(
+					"res",
+					field.GoName,
+					" = make([]*",
+					pbStructPackage.Ident("Struct"),
+					", 0, len(",
+					pname,
+					"))",
+				)
+				f.P("for idx := range ", pname, " {")
+				f.P("temp, err := ", pbStructPackage.Ident("NewStruct("+pname+"[idx])"))
 				f.P("if err != nil {")
 				f.P("return nil, err")
 				f.P("}")
+				f.P("res", field.GoName, " = append(res", field.GoName, ", temp)")
+				f.P("}")
+
+				if !field.Desc.HasOptionalKeyword() {
+					f.P("} else {")
+					f.P("res", field.GoName, " = []*", pbStructPackage.Ident("Struct"), "{}")
+				}
 				f.P("}")
 			} else {
-				f.P("res", field.GoName, ", err := ", pbStructPackage.Ident("NewStruct("+pname+")"))
-				f.P("if err != nil {")
-				f.P("return nil, err")
-				f.P("}")
+				if field.Desc.HasOptionalKeyword() {
+					f.P("res", field.GoName, " := (*", pbStructPackage.Ident("Struct"), ")(nil)")
+
+					f.P("if ", pname, " != nil {")
+					f.P("var err error")
+					f.P("res", field.GoName, ", err = ", pbStructPackage.Ident("NewStruct("+pname+")"))
+					f.P("if err != nil {")
+					f.P("return nil, err")
+					f.P("}")
+					f.P("}")
+				} else {
+					f.P("res", field.GoName, ", err := ", pbStructPackage.Ident("NewStruct("+pname+")"))
+					f.P("if err != nil {")
+					f.P("return nil, err")
+					f.P("}")
+				}
 			}
 			return field.GoName, "res" + field.GoName
 		}
